@@ -13,7 +13,12 @@ Ce module est composé de plusieurs éléments:
 import chess
 import pygame
 import sys
+from pygame import mixer
 
+pygame.mixer.init()
+
+mixer.music.load("chess-Clock.wav") # son background
+mixer.music.play(-1)
 
 # On code le dictionnaire qui représente les pièces d'échec. Les initiales servent à décrire la pièce lors de son
 # mouvement. Par exemple 'e5' représente le mouvement d'un pion vers la case e5, alors que Nb3 représente le déplacement
@@ -43,6 +48,7 @@ class Piece:
         self.ecran = ecran
         self.image = image
 
+
     def affiche(self):
         """
         Cette méthode force l'affichage de la pièce sur l'écran.
@@ -60,6 +66,7 @@ class Piece:
                   |                      |
                   +----------------------+
         """
+
         r = self.image.get_rect()       # On récupère la taille de l'image à afficher
         r.topleft = self.x, self.y      # On passe les coordonnées de la pièce comme coin en haut à gauche du rectangle
         self.ecran.blit(self.image, r)  # On affichage l'image dans le rectangle crée à l'intérieur de la zone écran
@@ -71,6 +78,7 @@ class Piece:
         return chr(97 + (self.x // 85)) + str(((680 - self.y) // 85) + 1)
 
 
+
 class Echiquier:
     """
     Représente un echiquier.
@@ -79,6 +87,7 @@ class Echiquier:
         self.moteur = chess.Board()  # Moteur va valider si les mouvements sont valables.
         self.ecran = ecran
         self.echiquier = echiquier
+        self.selected_piece = 0
         self.pieces = [Piece("Roi",      "Noir",  85 * 4, 0,      85, self._image(image, (68, 70, 85, 85)),   ecran),
                        Piece("Dame",     "Noir",  85 * 3, 0,      85, self._image(image, (234, 70, 85, 85)),  ecran),
                        Piece("Tour",     "Noir",  85 * 0, 0,      85, self._image(image, (400, 70, 85, 85)),  ecran),
@@ -125,17 +134,42 @@ class Echiquier:
                     if event.button == 1:
                         x, y = event.pos
                         print(x, y)
+                        selected_piece = 0
+                        for p in self.pieces:                 # partie 4
+                            if ((x // 85) * 85) == p.x and ((y // 85) * 85) == p.y:
+                                print(f"{p.couleur} {p.nom}: {p.x} x {p.y} vs {x // 85 * 85}x{y // 85 * 85}")
+                                selected_piece = p
+                                break
+                        else:
+                            print("Aucune piece selectionnee")
+
 
                 elif event.type == pygame.MOUSEBUTTONUP:
-                    if event.button == 1:
+                    if event.button == 1 and selected_piece != 0:
                         x, y = event.pos
-                        print(x, y)
+                        print(chr(97 + (x // 85)), ((680 - y) // 85) + 1)
+                        if ((x // 85) * 85, (y // 85) * 85) != (selected_piece.x, selected_piece.y):
+                            old = to_tile(selected_piece.x, selected_piece.y + 85)                  #partie 6 validite du mouvement
+                            new = to_tile(x, y)
+                            if chess.Move.from_uci(f"{old}{new}") in self.moteur.legal_moves:
+                                selected_piece.x = (x // 85) * 85
+                                selected_piece.y = (y // 85) * 85
+                                self.moteur.push_san(f"{piece_initiale[selected_piece.nom]}{old}{new}")
+                                for k, p in enumerate(self.pieces):
+                                    if p.x == selected_piece.x and p.y == selected_piece.y and p != selected_piece:   #partie 7 capture piece
+                                        self.pieces.pop(k)
+                                        print(f"{p.couleur} {p.nom} being captured") # capture
+                            else:
+                                print(f"{old}{new} not in legal moves")
+                            selected_piece = 0
+
 
             self.ecran.fill((255, 255, 255))
             self.ecran.blit(self.echiquier, self.echiquier.get_rect())
 
             [p.affiche() for p in self.pieces]
             pygame.display.update()
+
 
     def _image(self, image, pos):
         """
@@ -145,6 +179,11 @@ class Echiquier:
         obj = pygame.Surface(r.size).convert()
         obj.blit(image, (0, 0), r)
         return obj
+
+
+def to_tile(x, y):
+        return chr(97 + (x // 85)) + str(((680 - y) // 85) + 1)
+
 
 
 def nouvelle_partie():
@@ -177,3 +216,4 @@ def nouvelle_partie():
 if __name__ == '__main__':
     partie = nouvelle_partie()
     partie.jouer()
+
